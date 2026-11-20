@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.egg-info/
+.pytest_cache/
+tests/result_images/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+.pixi/
+.plotparity/

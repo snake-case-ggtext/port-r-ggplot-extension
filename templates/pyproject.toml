@@ -1,0 +1,100 @@
+[build-system]
+requires = ["hatchling>=1.18"]
+build-backend = "hatchling.build"
+
+[project]
+name = "{{package}}"
+version = "0.1.0"
+description = "A Python (plotnine) port of the R package {{r_package}}"
+readme = "README.md"
+license = "{{license}}"
+requires-python = ">=3.10"
+keywords = ["plotnine", "ggplot", "matplotlib", "visualization", "{{r_package}}"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Framework :: Matplotlib",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: Visualization",
+]
+# Ranges for pip users. The pixi environment below pins the exact reference versions.
+dependencies = [
+    "matplotlib>=3.10",
+    "numpy>=1.23",
+    "pandas",
+    "plotnine>=0.15,<0.16",
+]
+
+[dependency-groups]
+test = ["pytest>=7", "pytest-cov", "pytest-randomly"]
+dev = [{ include-group = "test" }, "ruff", "prek", "pyrefly"]
+# The versions plotparity pins and the image baselines are made with.
+reference = ["plotnine==0.15.9", "matplotlib==3.11.2"]
+
+[project.urls]
+"R {{r_package}}" = "{{r_url}}"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/{{package}}"]
+
+# ── pixi: one environment with Python, R and the tools ─────────────────
+[tool.pixi.workspace]
+channels = ["conda-forge"]
+platforms = ["linux-64", "osx-64", "osx-arm64"]
+
+[tool.pixi.dependencies]
+python = "3.13.*"
+r-base = "*"
+r-ggplot2 = "*"
+r-ragg = "*"        # R references are rendered with ragg
+r-systemfonts = "*"
+r-jsonlite = "*"
+r-testthat = "*"    # run the upstream tests in R when checking behaviour
+r-vdiffr = "*"      # ... which use expect_doppelganger
+r-remotes = "*"     # install the upstream package from its local clone
+# r-{{r_package_lower}} = "*"   # uncomment if conda-forge has it; else `pixi run install-r-upstream`
+
+[tool.pixi.pypi-dependencies]
+{{package}} = { path = ".", editable = true }
+# plotparity from its local clone; editable, so adapter edits there take effect immediately
+plotparity = { path = "{{plotparity_path}}", editable = true }
+
+[tool.pixi.environments]
+default = { features = ["dev", "reference"], solve-group = "default" }
+
+[tool.pixi.activation.env]
+R_UPSTREAM = "{{r_source_path}}"
+# plotparity registers its own pinned DejaVu TTFs in R, which fails if fontconfig already
+# knows a "DejaVu Sans" (common on Linux, and in conda envs). Hide fontconfig's fonts from R;
+# matplotlib does not use fontconfig.
+FONTCONFIG_FILE = "$PIXI_PROJECT_ROOT/tools/fontconfig/fonts.conf"
+
+[tool.pixi.tasks]
+test = "pytest"
+lint = { depends-on = ["lint-ruff", "lint-format", "lint-types"] }
+lint-ruff = "ruff check ."
+lint-format = "ruff format --check ."
+lint-types = "pyrefly check"
+gallery = "python examples/run_all.py"
+install-r-upstream = "Rscript -e 'remotes::install_local(Sys.getenv(\"R_UPSTREAM\"), dependencies = NA, upgrade = \"never\")'"
+# Extra arguments are appended: `pixi run parity run --no-html`, `pixi run parity loop iterate ...`
+parity = "plotparity"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+filterwarnings = ["error::DeprecationWarning:{{package}}"]
+markers = [
+    "examples: run the gallery examples in examples/",
+]
+
+[tool.coverage.run]
+source = ["{{package}}"]
+branch = true
+
+# Ruff runs with its out-of-the-box rules and formatter settings.
+[tool.pyrefly]
+preset = "strict"
+project-includes = ["src", "tests", "examples"]
+search-path = ["src", "."]
+baseline = "pyrefly-baseline.json"
